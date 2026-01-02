@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  gateway:
+    image: envoyproxy/envoy:v1.28-latest
+    container_name: envoy-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml:ro
+    depends_on:
+    networks:
+      - cluster-network
+
+  login:
+    build:
+      context: ./login
+      dockerfile: Dockerfile
+    container_name: login
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  user:
+    build:
+      context: ./user
+      dockerfile: Dockerfile
+    container_name: user
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  cluster-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br0
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.0.0.0/16
+          gateway: 10.0.0.1
