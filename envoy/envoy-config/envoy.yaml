@@ -58,7 +58,7 @@ static_resources:
               - match:
                   prefix: "/tasks"
                 route:
-                  cluster: tasks_cluster
+                  cluster: task_cluster
           http_filters:
           - name: envoy.filters.http.jwt_authn
             typed_config:
@@ -146,7 +146,7 @@ static_resources:
         - endpoint:
             address:
               socket_address:
-                address: team.default.svc.cluster.local
+                address: team-service.default.svc.cluster.local
                 port_value: 8080
     lb_policy: ROUND_ROBIN
   - name: note_cluster
@@ -157,23 +157,23 @@ static_resources:
       cluster_name: note_cluster
       endpoints:
       - lb_endpoints:
-        - endpoint:
+        - endpoint: 
             address:
               socket_address:
-                address: note.default.svc.cluster.local
+                address: note-service.default.svc.cluster.local
                 port_value: 8080
     lb_policy: ROUND_ROBIN
-  - name: tasks_cluster
+  - name: task_cluster
     connect_timeout: 5s
     type: STRICT_DNS
     dns_lookup_family: V4_ONLY
     load_assignment:
-      cluster_name: tasks_cluster
+      cluster_name: task_cluster
       endpoints:
       - lb_endpoints:
         - endpoint:
             address:
               socket_address:
-                address: tasks.default.svc.cluster.local
+                address: task-service.default.svc.cluster.local
                 port_value: 8080
     lb_policy: ROUND_ROBIN

@@ -64,7 +64,7 @@ def create_team():
     if not data or not data.get('name'):
         return jsonify({'error': 'Team name is required'}), 400
     if Team.query.filter_by(name=data['name']).first():
-        return jsonify({'error': 'Team name already exists'}), 400  
+        return jsonify({'error': 'Team name already exists'}), 400
     team = Team(
         name=data['name'],
         description=data.get('description', ''),
@@ -183,4 +183,4 @@ def get_team_notes(team_id):
     return jsonify(notes_list), 200
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=True)

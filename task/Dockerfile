@@ -12,4 +12,4 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["python", "team.py"]
+CMD ["python", "task.py"]
