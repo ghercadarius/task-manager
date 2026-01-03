@@ -1,0 +1,31 @@
+auth microservice
+business logic - check reservations and apply reservations rules
+database microservice - makes all requests to database and receives requests from business logic microservice
+gateway - requests go to gateway to be sent to auth microservice
+
+
+user microservice 
+  CreateUser(name, email, passwordHash)
+• GetUserById(userId)
+• UpdateUser(userId, fields)
+• DeleteUser(userId) (soft delete recommended)
+• ListTeamsForUser(userId)
+• ListTasksAssignedToUser(userId, filters)
+
+team microservice
+• CreateTeam(name, ownerId)
+• GetTeam(teamId)
+• UpdateTeam(teamId, fields)
+• DeleteTeam(teamId)
+• AddUserToTeam(teamId, userId, role)
+• RemoveUserFromTeam(teamId, userId)
+• ListTeamMembers(teamId)
+• ListTeamTasks(teamId, filters)
+
+note microservice
+• CreateNote(authorId, teamId, content)
+• GetNote(noteId)
+• UpdateNote(noteId, content)
+• DeleteNote(noteId)
+• ListNotesForTeam(teamId)
+• ListNotesForTask(taskId) (if tasks can have multiple notes)

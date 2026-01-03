@@ -21,33 +21,6 @@ static_resources:
           - name: envoy.access_loggers.stdout
             typed_config:
               "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
-          http_filters:
-          - name: envoy.filters.http.jwt_authn
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
-              providers:
-                jwt_provider:
-                  issuer: "task-manager"
-                  local_jwks:
-                    inline_string: '{"keys":[{"kty":"RSA","n":"xVoCvt89T3_uOHH2Q_mSlaEXw8tXK8sTTIveqiqdm_zKZAsu_0cqRoN0q4Wqlic1VPal91G_OGsAK1EmrDcQH4DVffIliN39IivA0ryGRGsGu30xoP4E4a4DWqkP2OaMZawra7kWi_wniyp_uF-ikDwFsyr5gJl5dpad7pA1pSZcKdiYQ82baiqYUiDTch_TV-e-qdj-ckFIC7aYMpkaSIjB9QieZQNd9RcvYLSU801j4tywUtk_8onh08QP0A63ydhdePZqaIfGlF1n0BiE6de2MAONSlmLR6PaTVw99PLNtp0pisCsVec2hsY7NtP50KvvwQvYmqiU8-2hLDbwZQ","e":"AQAB","alg":"RS256","use":"sig"}]}'
-                  forward: true
-                  from_headers:
-                  - name: Authorization
-                    value_prefix: "Bearer "
-              rules:
-              - match: 
-                  prefix: "/register"
-              - match: 
-                  prefix: "/login"
-              - match:
-                  prefix: "/health"
-              - match:
-                  prefix: "/"
-                requires:
-                  provider_name: "jwt_provider"
-          - name: envoy.filters.http.router
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
           route_config:
             name: local_route
             virtual_hosts:
@@ -60,6 +33,10 @@ static_resources:
                   cluster: login_cluster
               - match:
                   prefix: "/health"
+                route:
+                  cluster: login_cluster
+              - match:
+                  prefix: "/protected"
                 route:
                   cluster: login_cluster
               - match:
@@ -82,7 +59,52 @@ static_resources:
                   prefix: "/tasks"
                 route:
                   cluster: tasks_cluster
-
+          http_filters:
+          - name: envoy.filters.http.jwt_authn
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+              providers:
+                jwt_provider:
+                  issuer: "task-manager"
+                  local_jwks:
+                    inline_string: '{"keys":[{"kty":"RSA","n":"xVoCvt89T3_uOHH2Q_mSlaEXw8tXK8sTTIveqiqdm_zKZAsu_0cqRoN0q4Wqlic1VPal91G_OGsAK1EmrDcQH4DVffIliN39IivA0ryGRGsGu30xoP4E4a4DWqkP2OaMZawra7kWi_wniyp_uF-ikDwFsyr5gJl5dpad7pA1pSZcKdiYQ82baiqYUiDTch_TV-e-qdj-ckFIC7aYMpkaSIjB9QieZQNd9RcvYLSU801j4tywUtk_8onh08QP0A63ydhdePZqaIfGlF1n0BiE6de2MAONSlmLR6PaTVw99PLNtp0pisCsVec2hsY7NtP50KvvwQvYmqiU8-2hLDbwZQ","e":"AQAB","alg":"RS256","use":"sig","kid":"1"}]}'
+                  forward: true
+                  payload_in_metadata: "jwt_payload"
+                  from_headers:
+                    - name: Authorization
+                      value_prefix: "Bearer "
+              rules:
+              - match: 
+                  prefix: "/register"
+                requires:
+                  allow_missing: {}
+              - match: 
+                  prefix: "/login"
+                requires:
+                  allow_missing: {}
+              - match:
+                  prefix: "/"
+                requires:
+                  provider_name: "jwt_provider"
+          - name: envoy.filters.http.lua
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+              inline_code: |
+                function envoy_on_request(request_handle)
+                  local meta = request_handle:streamInfo():dynamicMetadata():get("envoy.filters.http.jwt_authn")
+                  if meta and meta["jwt_payload"] then
+                    local payload = meta["jwt_payload"]
+                    if payload["user"] then
+                      request_handle:headers():add("X-User", payload["user"])
+                    end
+                    if payload["sub"] then
+                      request_handle:headers():add("X-Subject", payload["sub"])
+                    end
+                  end
+                end
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
 
   clusters:
   - name: login_cluster

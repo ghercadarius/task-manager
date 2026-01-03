@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: user-service
+  name: team-service
   labels:
-    app: user-service
+    app: team-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: user-service
+      app: team-service
   template:
     metadata:
       labels:
-        app: user-service
+        app: team-service
     spec:
       containers:
-      - name: user-service
-        image: docker.io/library/user-service:latest
+      - name: team-service
+        image: docker.io/library/team-service:latest
         imagePullPolicy: Never
         ports:
         - containerPort: 8080
@@ -43,10 +43,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: user-service
+  name: team-service
 spec:
   selector:
-    app: user-service
+    app: team-service
   ports:
   - protocol: TCP
     port: 8080

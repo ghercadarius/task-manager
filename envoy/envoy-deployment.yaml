@@ -15,7 +15,7 @@ metadata:
   name: envoy-gateway
   namespace: envoy-gateway-system
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: envoy-gateway
