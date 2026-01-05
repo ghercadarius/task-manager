@@ -7,11 +7,13 @@ kubectl delete -f ./login/login-service-deployment.yaml
 kubectl delete -f ./user/user-service-deployment.yaml
 kubectl delete -f ./team/team-service-deployment.yaml
 kubectl delete -f ./task/task-service-deployment.yaml
+kubectl delete -f ./note/note-service-deployment.yaml
 
 cp database/models.py login/models.py
 cp database/models.py team/models.py
 cp database/models.py user/models.py
 cp database/models.py task/models.py
+cp database/models.py note/models.py
 
 # Build Docker images
 echo "Building Docker images..."
@@ -31,6 +33,10 @@ docker build -t task-service ./task
 minikube image load task-service:latest
 rm task/models.py
 
+docker build -t note-service ./note
+minikube image load note-service:latest
+rm note/models.py
+
 echo "Applying Kubernetes deployment for login..."
 kubectl apply -f ./login/login-service-deployment.yaml
 
@@ -42,3 +48,6 @@ kubectl apply -f ./team/team-service-deployment.yaml
 
 echo "Applying Kubernetes deployment for task..."
 kubectl apply -f ./task/task-service-deployment.yaml
+
+echo "Applying Kubernetes deployment for note..."
+kubectl apply -f ./note/note-service-deployment.yaml
