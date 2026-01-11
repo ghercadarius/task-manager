@@ -13,6 +13,7 @@ kubectl delete -f ./note/note-service-deployment.yaml
 kubectl delete -f ./database/pgadmin-deployment.yaml
 kubectl delete -f ./database/pgadmin-service.yaml
 kubectl delete -f ./database/pgadmin-configmap.yaml
+kubectl delete -f ./cluster/portainer-deployment.yaml
 
 cp database/models.py login/models.py
 cp database/models.py team/models.py
@@ -54,6 +55,9 @@ sleep 2
 kubectl apply -f ./database/pgadmin-deployment.yaml
 sleep 2
 kubectl apply -f ./database/pgadmin-service.yaml
+
+echo "Applying Kubernetes deployment for Portainer..."
+kubectl apply -f ./cluster/portainer-deployment.yaml
 
 sleep 5  # Wait for the database to be ready
 

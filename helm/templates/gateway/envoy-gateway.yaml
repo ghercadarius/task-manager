@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.envoy.namespace }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.envoy.serviceAccount }}
+  namespace: {{ .Values.envoy.namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.envoy.deploymentName }}
+  namespace: {{ .Values.envoy.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.envoy.deploymentName }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.envoy.deploymentName }}
+    spec:
+      containers:
+      - name: {{ .Values.envoy.deploymentName }}
+        image: {{ .Values.envoy.image }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        {{- toYaml .Values.envoy.ports | nindent 8 }}
+        volumeMounts:
+        - name: envoy-config
+          mountPath: /etc/envoy
+        env:
+        - name: ENVOY_LOG_LEVEL
+          value: {{ .Values.envoy.envoyLogLevel }}
+        resources:
+          requests:
+            memory: {{ .Values.envoy.resources.requests.memory }}
+            cpu: {{ .Values.envoy.resources.requests.cpu }}
+          limits:
+            memory: {{ .Values.envoy.resources.limits.memory }}
+            cpu: {{ .Values.envoy.resources.limits.cpu }}
+      volumes:
+      - name: envoy-config
+        hostPath:
+          path: {{ .Values.envoy.configPath }}
+          type: Directory
+      serviceAccountName: {{ .Values.envoy.serviceAccount }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.envoy.serviceName }}
+  namespace: {{ .Values.envoy.namespace }}
+  labels:
+    app: {{ .Values.envoy.deploymentName }}
+spec:
+  selector:
+    app: {{ .Values.envoy.deploymentName }}
+  ports:
+  {{- toYaml .Values.envoy.servicePorts | nindent 4 }}
+  type: LoadBalancer
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.envoy.ingress.name }}
+spec:
+  ingressClassName: {{ .Values.envoy.ingress.className }}
+  rules:
+  - host: {{ .Values.envoy.ingress.host }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.envoy.serviceName }}
+            port:
+              number: {{ .Values.envoy.ingress.servicePort }}
+  - host: {{ .Values.envoy.ingress.pgadminHost }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.envoy.serviceName }}
+            port:
+              number: {{ .Values.envoy.ingress.pgadminPort }}
+  - host: {{ .Values.envoy.ingress.portainerHost }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.envoy.serviceName }}
+            port:
+              number: {{ .Values.envoy.ingress.portainerPort }}
+  - host: {{ .Values.envoy.ingress.grafanaHost }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.envoy.serviceName }}
+            port:
+              number: {{ .Values.envoy.ingress.grafanaPort }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Values.envoy.deploymentName }}
+  namespace: {{ .Values.envoy.namespace }}
+  labels:
+    release: {{ .Values.envoy.releaseName }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.envoy.deploymentName }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.envoy.namespace }}
+  endpoints:
+    - port: admin
+      path: /stats/prometheus
+      interval: 15s
+      honorLabels: true

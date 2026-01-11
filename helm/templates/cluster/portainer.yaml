@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.portainer.namespace }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.portainer.name }}
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+  
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.portainer.name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.portainer.name }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.portainer.serviceAccount }}
+  namespace: {{ .Values.portainer.namespace }}
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.portainer.serviceAccount }}
+  namespace: {{ .Values.portainer.namespace }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.portainer.serviceName }}
+  namespace: {{ .Values.portainer.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Values.portainer.name }}
+  ports:
+    - name: http
+      port: {{ .Values.portainer.servicePort }}
+      targetPort: {{ .Values.portainer.port }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.portainer.name }}
+  namespace: {{ .Values.portainer.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.portainer.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.portainer.name }}
+    spec:
+      serviceAccountName: {{ .Values.portainer.serviceAccount }}
+      containers:
+        - name: {{ .Values.portainer.name }}
+          image: {{ .Values.portainer.image }}
+          ports:
+            - containerPort: {{ .Values.portainer.port }}
+              name: http
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}

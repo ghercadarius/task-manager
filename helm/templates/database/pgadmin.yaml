@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+ name: {{ .Values.pgadmin.configmapName }}
+data:
+ servers.json: | 
+{{ .Values.pgadmin.pgadminConfig | indent 2 }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.pgadmin.pvcName }}
+  labels:
+    app: {{ .Values.pgadmin.name }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.pgadmin.pvcStorage }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.pgadmin.name }}
+spec:
+  replicas: {{ .Values.pgadmin.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.pgadmin.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.pgadmin.name }}
+    spec:
+      containers:
+      - name: {{ .Values.pgadmin.name }}
+        image: {{ .Values.pgadmin.image }}
+        imagePullPolicy: IfNotPresent
+        ports: 
+{{- toYaml .Values.pgadmin.ports | nindent 8 }}
+        env:
+{{- toYaml .Values.pgadmin.env | nindent 8 }}
+        volumeMounts:
+        - name: pgadmin-storage
+          mountPath: /var/lib/pgadmin
+        - name: pgadmin-config
+          mountPath: /pgadmin4/servers.json
+          subPath: servers.json
+          readOnly: true
+      volumes:
+        - name: pgadmin-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.pgadmin.pvcName }}
+        - name: pgadmin-config
+          configMap:
+            name: {{ .Values.pgadmin.configmapName }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+ name: {{ .Values.pgadmin.serviceName }}
+spec:
+ ports:
+ - protocol: TCP
+   port: {{ .Values.pgadmin.servicePort }}
+   targetPort: {{index .Values.pgadmin.ports 0 "containerPort" }}
+ selector:
+   app: {{ .Values.pgadmin.name }}
+ type: ClusterIP

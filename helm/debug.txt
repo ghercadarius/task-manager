@@ -1,0 +1,682 @@
+---
+# Source: task-manager/templates/cluster/portainer.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: portainer
+---
+# Source: task-manager/templates/gateway/envoy-gateway.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: envoy-gateway-system
+---
+# Source: task-manager/templates/cluster/portainer.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: portainer
+  namespace: portainer
+---
+# Source: task-manager/templates/gateway/envoy-gateway.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+---
+# Source: task-manager/templates/database/pgadmin.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+ name: pgadmin-config
+data:
+ servers.json: | 
+  {
+    "Servers": {
+      "1": {
+        "Name": "PostgreSQL DB",
+        "Group": "Servers",
+        "Port": 5432,
+        "Username": "postgres",
+        "Password": "postgrespassword",
+        "Host": "postgres.default.svc.cluster.local",
+        "SSLMode": "prefer",
+        "MaintenanceDB": "postgres"
+      }
+    }
+  }
+---
+# Source: task-manager/templates/database/pgadmin.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgadmin-pvc
+  labels:
+    app: pgadmin
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+# Source: task-manager/templates/database/postgres.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  labels:
+    app: postgres
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Source: task-manager/templates/cluster/portainer.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: portainer
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+# Source: task-manager/templates/cluster/portainer.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: portainer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: portainer
+subjects:
+- kind: ServiceAccount
+  name: portainer
+  namespace: portainer
+---
+# Source: task-manager/templates/cluster/portainer.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: portainer
+  namespace: portainer
+spec:
+  type: ClusterIP
+  selector:
+    app: portainer
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 9000
+---
+# Source: task-manager/templates/database/pgadmin.yaml
+apiVersion: v1
+kind: Service
+metadata:
+ name: pgadmin-service
+spec:
+ ports:
+ - protocol: TCP
+   port: 8080
+   targetPort: 80
+ selector:
+   app: pgadmin
+ type: ClusterIP
+---
+# Source: task-manager/templates/database/postgres.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres
+---
+# Source: task-manager/templates/gateway/envoy-gateway.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+spec:
+  selector:
+    app: envoy-gateway
+  ports:
+    - name: control
+      port: 8001
+      targetPort: 8001
+    - name: metrics
+      port: 8002
+      targetPort: 8002
+    - name: http
+      port: 80
+      targetPort: 80
+    - name: pgadmin
+      port: 8081
+      targetPort: 8081
+    - name: portainer
+      port: 8082
+      targetPort: 8082
+  type: LoadBalancer
+---
+# Source: task-manager/templates/microservice/microservice.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: login-service
+spec:
+  selector:
+    app: login-service
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+# Source: task-manager/templates/microservice/microservice.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+spec:
+  selector:
+    app: user-service
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+# Source: task-manager/templates/microservice/microservice.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: team-service
+spec:
+  selector:
+    app: team-service
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+# Source: task-manager/templates/microservice/microservice.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: note-service
+spec:
+  selector:
+    app: note-service
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+# Source: task-manager/templates/microservice/microservice.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: task-service
+spec:
+  selector:
+    app: task-service
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+# Source: task-manager/templates/cluster/portainer.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portainer
+  namespace: portainer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: portainer
+  template:
+    metadata:
+      labels:
+        app: portainer
+    spec:
+      serviceAccountName: portainer
+      containers:
+        - name: portainer
+          image: portainer/portainer-ce:latest
+          ports:
+            - containerPort: 9000
+              name: http
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+# Source: task-manager/templates/database/pgadmin.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgadmin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgadmin
+  template:
+    metadata:
+      labels:
+        app: pgadmin
+    spec:
+      containers:
+      - name: pgadmin
+        image: dpage/pgadmin4:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        env:
+        - name: PGADMIN_DEFAULT_EMAIL
+          value: darius@pgadmin.com
+        - name: PGADMIN_DEFAULT_PASSWORD
+          value: dariuspassword
+        volumeMounts:
+        - name: pgadmin-storage
+          mountPath: /var/lib/pgadmin
+        - name: pgadmin-config
+          mountPath: /pgadmin4/servers.json
+          subPath: servers.json
+          readOnly: true
+      volumes:
+        - name: pgadmin-storage
+          persistentVolumeClaim:
+            claimName: pgadmin-pvc
+        - name: pgadmin-config
+          configMap:
+            name: pgadmin-config
+---
+# Source: task-manager/templates/database/postgres.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: postgrespassword
+        - name: POSTGRES_DB
+          value: taskdb
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+---
+# Source: task-manager/templates/gateway/envoy-gateway.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: envoy-gateway
+  template:
+    metadata:
+      labels:
+        app: envoy-gateway
+    spec:
+      containers:
+      - name: envoy-gateway
+        image: envoyproxy/envoy:v1.28-latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8001
+          name: control
+        - containerPort: 8002
+          name: metrics
+        - containerPort: 80
+          name: http
+        - containerPort: 8081
+          name: pgadmin
+        - containerPort: 8082
+          name: portainer
+        volumeMounts:
+        - name: envoy-config
+          mountPath: /etc/envoy
+        env:
+        - name: ENVOY_LOG_LEVEL
+          value: info
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 250m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+      volumes:
+      - name: envoy-config
+        hostPath:
+          path: /mnt/envoy-config
+          type: Directory
+      serviceAccountName: envoy-gateway
+---
+# Source: task-manager/templates/microservice/microservice.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: login-service
+  labels:
+    app: login-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: login-service
+  template:
+    metadata:
+      labels:
+        app: login-service
+    spec:
+      containers:
+      - name: login-service
+        image: docker.io/library/login-service:latest
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: certs
+          mountPath: /etc/certs
+          readOnly: true
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: certs
+        hostPath:
+          path: /etc/certs
+          type: Directory
+---
+# Source: task-manager/templates/microservice/microservice.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  labels:
+    app: user-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+      - name: user-service
+        image: docker.io/library/user-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+        livenessProbe:
+          httpGet:
+            path: /users/health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /users/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# Source: task-manager/templates/microservice/microservice.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: team-service
+  labels:
+    app: team-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: team-service
+  template:
+    metadata:
+      labels:
+        app: team-service
+    spec:
+      containers:
+      - name: team-service
+        image: docker.io/library/team-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+        livenessProbe:
+          httpGet:
+            path: /teams/health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /teams/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# Source: task-manager/templates/microservice/microservice.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: note-service
+  labels:
+    app: note-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: note-service
+  template:
+    metadata:
+      labels:
+        app: note-service
+    spec:
+      containers:
+      - name: note-service
+        image: docker.io/library/note-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+        livenessProbe:
+          httpGet:
+            path: /notes/health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /notes/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# Source: task-manager/templates/microservice/microservice.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: task-service
+  labels:
+    app: task-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: task-service
+  template:
+    metadata:
+      labels:
+        app: task-service
+    spec:
+      containers:
+      - name: task-service
+        image: docker.io/library/task-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+        livenessProbe:
+          httpGet:
+            path: /tasks/health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /tasks/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# Source: task-manager/templates/gateway/envoy-gateway.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: envoy-gateway-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: taskmanager.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: envoy-gateway
+            port:
+              number: 80
+  - host: pgadmin.taskmanager.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: envoy-gateway
+            port:
+              number: 8081
+  - host: portainer.taskmanager.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: envoy-gateway
+            port:
+              number: 8082
+---
+# Source: task-manager/templates/monitoring/monitoring.yaml
+apiVersion: v2
+name: task-manager
+description: Task Manager Microservices Application
+type: application
+version: 1.0.0
+appVersion: "1.0"
+
+dependencies:
+  - name: kube-prometheus-stack
+    version: "51.0.0"
+    repository: "https://prometheus-community.github.io/helm-charts"
+    condition: monitoring.enabled
+    namespace: monitoring

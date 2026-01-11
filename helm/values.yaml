@@ -1,0 +1,250 @@
+# Database
+postgres:
+  pvcName: postgres-pvc
+  serviceName: postgres
+  image: postgres:15-alpine
+  replicas: 1
+  port: 5432
+  postgresUser: postgres
+  postgresPassword: postgrespassword
+  postgresDB: taskdb
+  pvcStorage: 1Gi
+  servicePort: 5432
+
+pgadmin:
+  serviceName: pgadmin-service
+  name: pgadmin
+  configmapName: pgadmin-config
+  pgadminConfig: |-
+    {
+      "Servers": {
+        "1": {
+          "Name": "PostgreSQL DB",
+          "Group": "Servers",
+          "Port": 5432,
+          "Username": "postgres",
+          "Password": "postgrespassword",
+          "Host": "postgres.default.svc.cluster.local",
+          "SSLMode": "prefer",
+          "MaintenanceDB": "postgres"
+        }
+      }
+    }
+  pvcName: pgadmin-pvc
+  pvcStorage: 2Gi
+  image: dpage/pgadmin4:latest
+  ports:
+    - name: http
+      containerPort: 80
+      protocol: TCP
+  env:
+    - name: PGADMIN_DEFAULT_EMAIL
+      value: "darius@pgadmin.com"
+    - name: PGADMIN_DEFAULT_PASSWORD
+      value: "dariuspassword"
+  replicas: 1
+  email: darius@pgadmin.com
+  password: dariuspassword
+  servicePort: 8080
+
+# Services
+microservices:
+- name: login
+  image: docker.io/library/login-service:latest
+  replicas: 1
+  port: 8080
+  probePath: /health
+  livenessProbeDelay: 10
+  readinessProbeDelay: 5
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  certsPath: /etc/certs
+  hostCertsPath: /etc/certs
+  serviceName: login-service
+  servicePort: 8080
+
+- name: user
+  image: docker.io/library/user-service:latest
+  replicas: 1
+  port: 8080
+  probePath: /users/health
+  livenessProbeDelay: 10
+  readinessProbeDelay: 5
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  serviceName: user-service
+  servicePort: 8080
+
+- name: team
+  image: docker.io/library/team-service:latest
+  replicas: 1
+  port: 8080
+  probePath: /teams/health
+  livenessProbeDelay: 10
+  readinessProbeDelay: 5
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  serviceName: team-service
+  servicePort: 8080
+
+- name: note
+  image: docker.io/library/note-service:latest
+  replicas: 1
+  port: 8080
+  probePath: /notes/health
+  livenessProbeDelay: 10
+  readinessProbeDelay: 5
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  serviceName: note-service
+  servicePort: 8080
+
+- name: task
+  image: docker.io/library/task-service:latest
+  replicas: 1
+  port: 8080
+  probePath: /tasks/health
+  livenessProbeDelay: 10
+  readinessProbeDelay: 5
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  serviceName: task-service
+  servicePort: 8080
+
+# Envoy Gateway
+envoy:
+  namespace: envoy-gateway-system
+  serviceAccount: envoy-gateway
+  deploymentName: envoy-gateway
+  releaseName: task-manager
+  ingress:
+    name: envoy-gateway-ingress
+    host: taskmanager.local
+    servicePort: 80
+    pgadminHost: pgadmin.taskmanager.local
+    pgadminPort: 8081
+    portainerHost: portainer.taskmanager.local
+    portainerPort: 8082
+    grafanaHost: grafana.taskmanager.local
+    grafanaPort: 8083
+    className: nginx
+  image: envoyproxy/envoy:v1.28-latest
+  ports:
+    - containerPort: 8001
+      name: control
+    - containerPort: 8002
+      name: metrics
+    - containerPort: 80
+      name: http
+    - containerPort: 8081
+      name: pgadmin
+    - containerPort: 8082
+      name: portainer
+    - containerPort: 8083
+      name: grafana
+    - containerPort: 9901
+      name: admin
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  envoyLogLevel: info
+  configPath: /mnt/envoy-config
+  serviceName: envoy-gateway
+  servicePorts:
+    - port: 80
+      targetPort: 80
+      name: http
+    - port: 8081
+      targetPort: 8081
+      name: pgadmin
+    - port: 8082
+      targetPort: 8082
+      name: portainer
+    - port: 8083
+      targetPort: 8083
+      name: grafana
+    - port: 9901
+      targetPort: 9901
+      name: admin
+  replicas: 1
+
+# Portainer
+portainer:
+  namespace: portainer
+  name: portainer
+  serviceAccount: portainer
+  image: portainer/portainer-ce:latest
+  port: 9000
+  serviceName: portainer
+  servicePort: 8080
+  replicas: 1
+
+monitoring:
+  enabled: true
+
+kube-prometheus-stack:
+  prometheus:
+    prometheusSpec:
+      serviceMonitorSelector: {}
+      serviceMonitorNamespaceSelector: {}
+      retention: 24h
+      resources:
+        requests:
+          cpu: 250m
+          memory: 512Mi
+        limits:
+          cpu: 500m
+          memory: 1Gi
+  
+  grafana:
+    adminPassword: admin
+    persistence:
+      enabled: true
+      size: 5Gi
+    ingress:
+      enabled: true
+      ingressClassName: nginx
+      hosts:
+        - grafana.taskmanager.local
+  
+  prometheus:
+    ingress:
+      enabled: true
+      ingressClassName: nginx
+      hosts:
+        - prometheus.taskmanager.local
+  
+  prometheus-node-exporter:
+    enabled: true
+  
+  kube-state-metrics:
+    enabled: true

@@ -1,0 +1,73 @@
+{{- range .Values.microservices }}
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .serviceName }}
+  labels:
+    app: {{ .serviceName }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .serviceName }}
+  template:
+    metadata:
+      labels:
+        app: {{ .serviceName }}
+    spec:
+      containers:
+      - name: {{ .serviceName }}
+        image: {{ .image }}
+        imagePullPolicy: Never
+{{- if .certsPath}}
+        volumeMounts:
+        - name: certs
+          mountPath: {{ .certsPath }}
+          readOnly: true
+{{- end }}
+        ports:
+        - containerPort: {{ .port }}
+        resources:
+          requests:
+            memory: {{ .resources.requests.memory }}
+            cpu: {{ .resources.requests.cpu }}
+          limits:
+            memory: {{ .resources.limits.memory }}
+            cpu: {{ .resources.limits.cpu }}
+        livenessProbe:
+          httpGet:
+            path: {{ .probePath }}
+            port: {{ .port }}
+          initialDelaySeconds: {{ .livenessProbeDelay }}
+          periodSeconds: {{ .livenessProbeDelay }}
+        readinessProbe:
+          httpGet:
+            path: {{ .probePath }}
+            port: {{ .port }}
+          initialDelaySeconds: {{ .readinessProbeDelay }}
+          periodSeconds: {{ .readinessProbeDelay }}
+{{- if .certsPath}}
+      volumes:
+      - name: certs
+        hostPath:
+          path: {{ .hostCertsPath }}
+          type: Directory
+{{- end }}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .serviceName }}
+spec:
+  selector:
+    app: {{ .serviceName }}
+  ports:
+  - protocol: TCP
+    port: {{ .servicePort }}
+    targetPort: {{ .port }}
+  type: ClusterIP
+
+{{- end }}
