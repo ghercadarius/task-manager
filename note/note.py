@@ -141,7 +141,7 @@ def get_all_notes(user_name):
                 })
                 seen_ids.add(note_id)
     
-    return jsonify({'notes': notes_list}), 200
+    return jsonify({f'notes of user {user_name}': notes_list}), 200
 
 @app.route('/notes/<int:note_id>', methods=['GET'])
 @get_user_from_headers
@@ -377,7 +377,7 @@ def create_note(user_name):
     db.session.add(note)
     db.session.commit()
     
-    return jsonify({'message': 'Note created successfully', 'note_id': note.id}), 201
+    return jsonify({'message': f'Note created successfully for user {user_name}', 'note_id': note.id}), 201
 
 @app.route('/notes/<int:note_id>', methods=['PUT'])
 @get_user_from_headers

@@ -69,7 +69,8 @@ def health_check():
     return jsonify({'status': 'healthy', 'service': 'task-service'}), 200
 
 @app.route('/tasks', methods=['GET'])
-def get_all_tasks():
+@get_user_from_headers
+def get_all_tasks(user_name):
     """Get all tasks
     ---
     responses:
@@ -77,7 +78,7 @@ def get_all_tasks():
         description: List of tasks
     """
     tasks = Task.query.all()
-    return jsonify([{
+    return jsonify(f"tasks of user {user_name}", [{
         'id': t.id,
         'title': t.name,
         'description': t.description,
